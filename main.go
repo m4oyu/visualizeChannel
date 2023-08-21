@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/m4oyu/test/chanx"
-	visualizationtool "github.com/m4oyu/visualizationTool"
+	"github.com/m4oyu/visualizeChannel/chanx"
+
+	viz "github.com/m4oyu/goroutine-viz"
 )
 
 func main() {
-	useChanx()
+	// useChanx()
+	callRuntimeStack()
 }
 
 func useChanx() {
@@ -56,34 +58,12 @@ func wantToDo() {
 	fmt.Println(v2)
 }
 
-// wantToDo()
-// callRuntimeStack()
-
 func callRuntimeStack() {
-	visualizationtool.WatchGoroutine("BREAKPOINT1")
+	viz.WatchGoroutine("BREAKPOINT1")
 
 	go func() {
-		visualizationtool.WatchGoroutine("BREAKPOINT2")
-		<-time.After(time.Second * 1)
-
-		go func() {
-			visualizationtool.WatchGoroutine("BREAKPOINT3")
-			<-time.After(time.Second * 1)
-
-		}()
-
-		go func() {
-			visualizationtool.WatchGoroutine("BREAKPOINT4")
-			<-time.After(time.Second * 1)
-
-		}()
-
-		visualizationtool.WatchGoroutine("BREAKPOINT5")
+		viz.WatchGoroutine("BREAKPOINT2")
 		<-time.After(time.Second * 1)
 
 	}()
-
-	visualizationtool.WatchGoroutine("BREAKPOINT6")
-
-	<-time.After(time.Second * 5)
 }
