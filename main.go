@@ -2,16 +2,12 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/m4oyu/visualizeChannel/chanx"
-
-	viz "github.com/m4oyu/goroutine-viz"
 )
 
 func main() {
-	// useChanx()
-	callRuntimeStack()
+	useChanx()
 }
 
 func useChanx() {
@@ -39,6 +35,9 @@ func useChanx() {
 	fmt.Println(v1)
 	fmt.Println(v2)
 
+	ch1.Close()
+	ch2.Close()
+
 }
 
 func wantToDo() {
@@ -56,14 +55,4 @@ func wantToDo() {
 
 	fmt.Println(v1)
 	fmt.Println(v2)
-}
-
-func callRuntimeStack() {
-	viz.WatchGoroutine("BREAKPOINT1")
-
-	go func() {
-		viz.WatchGoroutine("BREAKPOINT2")
-		<-time.After(time.Second * 1)
-
-	}()
 }
