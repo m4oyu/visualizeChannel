@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 )
@@ -15,53 +17,71 @@ func main() {
 
 		func main() {
 			ch := make(chan int, 10)
-			fmt.Println(ch)
+			ch <- 5
+			fmt.Println(<-ch)
 		}
 	`
 
 	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, "example.go", sourceCode, parser.ParseComments)
+	expr, err := parser.ParseFile(fset, "example.go", sourceCode, parser.ParseComments)
 	if err != nil {
-
 		fmt.Println("Error parsing source code:", err)
 		return
 	}
 
-	ast.Inspect(node, func(n ast.Node) bool {
-		callExpr, ok := n.(*ast.CallExpr)
-		if !ok || len(callExpr.Args) != 2 {
-			return true
-		}
+	ast.Print(fset, expr)
 
-		fun, ok := callExpr.Fun.(*ast.SelectorExpr)
-		if !ok || fun.Sel.Name != "make" {
-			return true
-		}
+	ast.Inspect(expr, func(n ast.Node) bool {
 
-		chanType, ok := callExpr.Args[0].(*ast.ChanType)
-		if !ok {
-			return true
-		}
+		// make
+		if callExpr, ok := n.(*ast.CallExpr); ok {
+			if funIdent, ok := callExpr.Fun.(*ast.Ident); ok && funIdent.Name == "make" {
+				if _, ok := callExpr.Args[0].(*ast.ChanType); ok {
 
-		chanName := ""
-		for _, decl := range node.Decls {
-			genDecl, ok := decl.(*ast.GenDecl)
-			if !ok || genDecl.Tok != token.VAR {
-				continue
-			}
-			for _, spec := range genDecl.Specs {
-				valueSpec, ok := spec.(*ast.ValueSpec)
-				if !ok || len(valueSpec.Names) != 1 {
-					continue
+					chanSize := "1"
+					if len(callExpr.Args) > 1 {
+						chanSize = callExpr.Args[1].(*ast.BasicLit).Value
+					}
+
+					newCall := &ast.CallExpr{
+						Fun: &ast.Ident{Name: "chanx.Make"},
+						Args: []ast.Expr{
+							&ast.Ident{Name: callExpr.Args[0].(*ast.ChanType).Value.(*ast.Ident).Name},
+							&ast.Ident{Name: chanSize},
+						},
+					}
+					*callExpr = *newCall
 				}
-				chanName = valueSpec.Names[0].Name
 			}
 		}
 
-		fmt.Println("Channel Name:", chanName)
-		fmt.Println("Channel Type:", chanType.Value)
-		fmt.Println("Channel Size:", callExpr.Args[1])
+		// send
+		if _, ok := n.(*ast.SendStmt); ok {
+
+			// newSend := &ast.CallExpr{
+			// 	Fun: &ast.Ident{
+			// 		Name: "chanx.Send",
+			// 	},
+			// 	Args: []ast.Expr{
+			// 		&ast.BasicLit{Value: sendStmt.Value.(*ast.BasicLit).Value},
+			// 	},
+			// }
+
+			// parentBlock := n.
+			fmt.Printf("%+v\n", n)
+		}
+
+		// recv
 
 		return true
 	})
+
+	var buf bytes.Buffer
+	err = format.Node(&buf, fset, expr)
+	if err != nil {
+		fmt.Println("Error generating code:", err)
+		return
+	}
+	fmt.Println(buf.String())
+
 }
