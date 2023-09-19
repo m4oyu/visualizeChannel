@@ -19,9 +19,7 @@ func main() {
 			ch := make(chan int, 10)
 			ch <- 5
 			recv := <-ch
-			recv := chanx.Recv()
 			<-ch
-			a, b := <-ch1, <-ch2
 			fmt.Println(recv)
 		}
 	`
@@ -78,9 +76,11 @@ func InspectFunc(index int, funcDecl *ast.FuncDecl) {
 							&ast.Ident{Name: chanSize},
 						},
 					}
+
 					*callExpr = *newCall
 				}
 			}
+			return true
 		}
 
 		// send
@@ -96,12 +96,43 @@ func InspectFunc(index int, funcDecl *ast.FuncDecl) {
 				},
 			}
 			funcDecl.Body.List[index] = newSend
+			return true
 		}
 
 		// recv
-		// if unaryExpr, ok := n.(*ast.UnaryExpr); ok {
 
-		// }
+		// AssignStmt [recv := <-ch]
+		// TODO
+		// ExprStmt
+		//  -> UnaryExpr
+		//  -> CallExpr.Args
+		// Select文での使用,
+		if assignStmt, ok := n.(*ast.AssignStmt); ok {
+			for i, v := range assignStmt.Rhs {
+				if unaryExpr, ok := v.(*ast.UnaryExpr); ok && unaryExpr.Op == token.ARROW {
+					newRecv := &ast.CallExpr{
+						Fun: &ast.SelectorExpr{
+							X:   &ast.Ident{Name: "chanx"},
+							Sel: &ast.Ident{Name: "Recv"},
+						},
+					}
+					assignStmt.Rhs[i] = newRecv
+				}
+			}
+			return true
+		}
+		if exprStmt, ok := n.(*ast.ExprStmt); ok {
+			if unaryExpr, ok := exprStmt.X.(*ast.UnaryExpr); ok && unaryExpr.Op == token.ARROW {
+				newRecv := &ast.CallExpr{
+					Fun: &ast.SelectorExpr{
+						X:   &ast.Ident{Name: "chanx"},
+						Sel: &ast.Ident{Name: "Recv"},
+					},
+				}
+				exprStmt.X = newRecv
+			}
+			return true
+		}
 
 		return true
 	})
