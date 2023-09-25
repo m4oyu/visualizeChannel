@@ -35,13 +35,12 @@ func main() {
 			fmt.Println("modify import")
 		}
 
-		if funcDecl, ok := n.(*ast.FuncDecl); ok {
-
-			for i := 0; i < len(funcDecl.Body.List); i++ {
-				InspectFunc(i, funcDecl)
+		if funcDecl, ok := n.(*ast.FuncDecl); ok && funcDecl.Name.Name == "main" {
+			for i, _ := range funcDecl.Body.List {
+				InspectBlockStmt(i, funcDecl.Body)
 			}
-
 		}
+
 		return true
 	})
 
@@ -64,8 +63,14 @@ func main() {
 
 }
 
-func InspectFunc(index int, funcDecl *ast.FuncDecl) {
-	ast.Inspect(funcDecl.Body.List[index], func(n ast.Node) bool {
+func InspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
+	ast.Inspect(blockStmt.List[index], func(n ast.Node) bool {
+
+		if blockStmt, ok := n.(*ast.BlockStmt); ok {
+			for i, _ := range blockStmt.List {
+				InspectBlockStmt(i, blockStmt)
+			}
+		}
 
 		// make
 		if callExpr, ok := n.(*ast.CallExpr); ok {
@@ -83,7 +88,7 @@ func InspectFunc(index int, funcDecl *ast.FuncDecl) {
 						},
 					}
 
-					*callExpr = *newCall
+					callExpr = newCall
 				}
 			}
 			return true
@@ -101,7 +106,8 @@ func InspectFunc(index int, funcDecl *ast.FuncDecl) {
 					},
 				},
 			}
-			funcDecl.Body.List[index] = newSend
+
+			blockStmt.List[index] = newSend
 			return true
 		}
 
@@ -142,4 +148,7 @@ func InspectFunc(index int, funcDecl *ast.FuncDecl) {
 
 		return true
 	})
+
+	return true
+
 }
