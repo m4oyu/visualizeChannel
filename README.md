@@ -1,5 +1,5 @@
 # Visualize Channel
-Goのソースコードにインジェクションすることでチャネル情報を可視化するCLIツール
+Goのチャネル情報を可視化するCLIツール
 
 # Usage
 ```
