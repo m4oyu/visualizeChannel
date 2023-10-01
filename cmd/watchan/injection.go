@@ -1,33 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
-	"go/format"
-	"go/parser"
 	"go/token"
-	"os"
 )
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: mytool <go-file>")
-		return
-	}
-
-	goFilePath := os.Args[1]
-	fmt.Println(goFilePath)
-
-	fset := token.NewFileSet()
-	expr, err := parser.ParseFile(fset, goFilePath, nil, parser.ParseComments)
-	if err != nil {
-		fmt.Println("Error parsing source code:", err)
-		return
-	}
-
-	ast.Print(fset, expr)
-
+func injection(expr *ast.File) {
 	// Inject channel operation into the file content
 	ast.Inspect(expr, func(n ast.Node) bool {
 
@@ -40,32 +19,13 @@ func main() {
 				InspectBlockStmt(i, funcDecl.Body)
 			}
 		}
-
 		return true
 	})
-
-	var buf bytes.Buffer
-	err = format.Node(&buf, fset, expr)
-	if err != nil {
-		fmt.Println("Error generating code:", err)
-		return
-	}
-	fmt.Println(buf.String())
-
-	modifiedFilePath := "modified_" + goFilePath
-	err = os.WriteFile(modifiedFilePath, buf.Bytes(), 0644)
-	if err != nil {
-		fmt.Println("Error writing modified file:", err)
-		return
-	}
-
-	fmt.Println("Modified file written to:", modifiedFilePath)
-
 }
 
 func InspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
 	ast.Inspect(blockStmt.List[index], func(n ast.Node) bool {
-
+		// block roop
 		if blockStmt, ok := n.(*ast.BlockStmt); ok {
 			for i, _ := range blockStmt.List {
 				InspectBlockStmt(i, blockStmt)
@@ -80,15 +40,13 @@ func InspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
 					if len(callExpr.Args) > 1 {
 						chanSize = callExpr.Args[1].(*ast.BasicLit).Value
 					}
-					newCall := &ast.CallExpr{
+					*callExpr = ast.CallExpr{
 						Fun: &ast.Ident{Name: "chanx.Make"},
 						Args: []ast.Expr{
 							&ast.Ident{Name: callExpr.Args[0].(*ast.ChanType).Value.(*ast.Ident).Name},
 							&ast.Ident{Name: chanSize},
 						},
 					}
-
-					callExpr = newCall
 				}
 			}
 			return true
@@ -112,13 +70,6 @@ func InspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
 		}
 
 		// recv
-
-		// AssignStmt [recv := <-ch]
-		// TODO
-		// ExprStmt
-		//  -> UnaryExpr
-		//  -> CallExpr.Args
-		// Select文での使用,
 		if assignStmt, ok := n.(*ast.AssignStmt); ok {
 			for i, v := range assignStmt.Rhs {
 				if unaryExpr, ok := v.(*ast.UnaryExpr); ok && unaryExpr.Op == token.ARROW {
