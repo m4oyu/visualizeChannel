@@ -4,31 +4,37 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
-func injection(expr *ast.File) {
+func injection(fset *token.FileSet, expr *ast.File) {
+
+	astutil.AddImport(fset, expr, "github.com/m4oyu/visualizeChannel/chanx")
+
 	// Inject channel operation into the file content
 	ast.Inspect(expr, func(n ast.Node) bool {
 
 		if genDecl, ok := n.(*ast.GenDecl); ok && genDecl.Tok == token.IMPORT {
 			fmt.Println("modify import")
+
 		}
 
 		if funcDecl, ok := n.(*ast.FuncDecl); ok && funcDecl.Name.Name == "main" {
 			for i, _ := range funcDecl.Body.List {
-				InspectBlockStmt(i, funcDecl.Body)
+				inspectBlockStmt(i, funcDecl.Body)
 			}
 		}
 		return true
 	})
 }
 
-func InspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
+func inspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
 	ast.Inspect(blockStmt.List[index], func(n ast.Node) bool {
 		// block roop
 		if blockStmt, ok := n.(*ast.BlockStmt); ok {
 			for i, _ := range blockStmt.List {
-				InspectBlockStmt(i, blockStmt)
+				inspectBlockStmt(i, blockStmt)
 			}
 		}
 

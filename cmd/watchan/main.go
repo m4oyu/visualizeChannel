@@ -26,7 +26,7 @@ func main() {
 
 	ast.Print(fset, expr)
 
-	injection(expr)
+	injection(fset, expr)
 
 	// check output
 	var buf bytes.Buffer
