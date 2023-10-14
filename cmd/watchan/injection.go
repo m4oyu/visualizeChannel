@@ -15,7 +15,7 @@ func injection(fset *token.FileSet, expr *ast.File) {
 	ast.Inspect(expr, func(n ast.Node) bool {
 
 		if funcDecl, ok := n.(*ast.FuncDecl); ok && funcDecl.Name.Name == "main" {
-			for i, _ := range funcDecl.Body.List {
+			for i := range funcDecl.Body.List {
 				inspectBlockStmt(i, funcDecl.Body)
 			}
 		}
@@ -27,7 +27,7 @@ func inspectBlockStmt(index int, blockStmt *ast.BlockStmt) bool {
 	ast.Inspect(blockStmt.List[index], func(n ast.Node) bool {
 		// block roop
 		if blockStmt, ok := n.(*ast.BlockStmt); ok {
-			for i, _ := range blockStmt.List {
+			for i := range blockStmt.List {
 				inspectBlockStmt(i, blockStmt)
 			}
 		}
