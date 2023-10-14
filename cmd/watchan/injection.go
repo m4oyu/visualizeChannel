@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 
@@ -14,11 +13,6 @@ func injection(fset *token.FileSet, expr *ast.File) {
 
 	// Inject channel operation into the file content
 	ast.Inspect(expr, func(n ast.Node) bool {
-
-		if genDecl, ok := n.(*ast.GenDecl); ok && genDecl.Tok == token.IMPORT {
-			fmt.Println("modify import")
-
-		}
 
 		if funcDecl, ok := n.(*ast.FuncDecl); ok && funcDecl.Name.Name == "main" {
 			for i, _ := range funcDecl.Body.List {

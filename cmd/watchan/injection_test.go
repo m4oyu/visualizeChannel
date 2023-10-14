@@ -63,23 +63,7 @@ import (
 	"fmt"
 	"time"
 )
-
-func main() {
-	ch := make(chan int)
-
-	go func() {
-		for i := 0; i < 5; i++ {
-			ch <- i
-			time.Sleep(time.Second)
-		}
-		close(ch)
-	}()
-
-	for value := range ch {
-		fmt.Println("Received:", value)
-	}
-}
-		`,
+`,
 		out: `package main
 
 import (
@@ -87,21 +71,52 @@ import (
 	"github.com/m4oyu/visualizeChannel/chanx"
 	"time"
 )
+`,
+	},
+	{
+		name: "replace chanx.Make(), size 1",
+		in: `package main
+
+func main() {
+	ch := make(chan int)
+}
+`,
+		out: `package main
+
+import "github.com/m4oyu/visualizeChannel/chanx"
 
 func main() {
 	ch := chanx.Make(int, 1)
+}
+`,
+	},
+	{
+		name: "replace chanx.Make(), size 1",
+		in: `package main
 
-	go func() {
-		for i := 0; i < 5; i++ {
-			chanx.Send(i)
-			time.Sleep(time.Second)
-		}
-		close(ch)
-	}()
+import (
+	"fmt"
+)
 
-	for value := range ch {
-		fmt.Println("Received:", value)
-	}
+func main() {
+	ch := make(chan int, 1)
+	ch <- 1
+	fmt.Println(<-ch)
+	close(ch)
+}
+`,
+		out: `package main
+
+import (
+	"fmt"
+	"github.com/m4oyu/visualizeChannel/chanx"
+)
+
+func main() {
+	ch := chanx.Make(int, 1)
+	chanx.Send(1)
+	fmt.Println(<-ch)
+	close(ch)
 }
 `,
 	},
@@ -112,6 +127,7 @@ func Test_injection(t *testing.T) {
 		file := parse(t, test.name, test.in)
 		var before bytes.Buffer
 		ast.Fprint(&before, fset, file, nil)
+
 		injection(fset, file)
 		if got := print(t, test.name, file); got != test.out {
 			t.Errorf("first run: %s:\ngot: %s\nwant: %s", test.name, got, test.out)
