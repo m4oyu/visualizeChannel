@@ -7,17 +7,25 @@ import (
 	"sync"
 )
 
-var IDCounter int = 1
+var channelID int = 1
 
 type msg struct {
-	v  interface{}
-	ok bool
+	value interface{}
+	ok    bool
+}
+
+type log struct {
+	value     interface{}
+	event     string
+	goroutine string
+	ok        bool
 }
 
 type c struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
-	c      chan msg
+	origin chan msg
+	logger chan log
 	closed bool
 	cid    int
 }
@@ -35,35 +43,41 @@ type C interface {
 }
 
 // Make new channel. Provide a length to make a buffered channel.
-func Make(length int, name string) C {
-	c := &c{c: make(chan msg, length), cid: IDCounter}
-	IDCounter++
+func Make(length int) C {
+	logger := make(chan log, length)
+
+	c := &c{
+		origin: make(chan msg, length),
+		logger: logger,
+		cid:    channelID,
+	}
+
+	go func() {
+		for l := range c.logger {
+			// "goroutine 1" SEND 20 via "channel 1"
+			fmt.Printf("\"goroutine %v\" %v %v via \"channel %v\"\n", l.goroutine, l.event, l.value, c.cid)
+		}
+	}()
+
+	channelID++
 	c.cond = sync.NewCond(&c.mu)
 	return c
 }
 
 func (c *c) Send(v interface{}) (ok bool) {
 	defer func() { ok = recover() == nil }()
-	c.c <- msg{v, true}
-
-	stackSlice := make([]byte, 2048)
-	s := runtime.Stack(stackSlice, false)
-	r := strings.Split(strings.Split(string(stackSlice[0:s]), "\n")[0], " ")
-	fmt.Printf("%v %v SEND \"%v\" via channel %v\n", r[0], r[1], v, c.cid)
-
+	c.origin <- msg{v, true}
+	goroutineID := getGoroutineID()
+	c.logger <- log{v, "SEND", goroutineID, true}
 	return
 }
 
 func (c *c) Recv() (v interface{}, ok bool) {
 	select {
-	case msg := <-c.c:
-
-		stackSlice := make([]byte, 2048)
-		s := runtime.Stack(stackSlice, false)
-		r := strings.Split(strings.Split(string(stackSlice[0:s]), "\n")[0], " ")
-		fmt.Printf("%v %v RECV \"%v\" via channel %v\n", r[0], r[1], msg.v, c.cid)
-
-		return msg.v, msg.ok
+	case m := <-c.origin:
+		goroutineID := getGoroutineID()
+		c.logger <- log{m.value, "RECV", goroutineID, true}
+		return m.value, m.ok
 	}
 
 }
@@ -72,7 +86,8 @@ func (c *c) Close() (ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer func() { ok = recover() == nil }()
-	close(c.c)
+	close(c.origin)
+	close(c.logger)
 	c.closed = true
 	c.cond.Broadcast()
 	return
@@ -87,4 +102,11 @@ func (c *c) Wait() {
 		}
 		c.cond.Wait()
 	}
+}
+
+func getGoroutineID() string {
+	stackSlice := make([]byte, 2048)
+	s := runtime.Stack(stackSlice, false)
+	r := strings.Split(strings.Split(string(stackSlice[0:s]), "\n")[0], " ")
+	return r[1]
 }
